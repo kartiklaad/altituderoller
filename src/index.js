@@ -43,15 +43,31 @@ import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const mappings = JSON.parse(readFileSync(join(__dirname, 'config/mappings.json'), 'utf8'));
+const mappingsPath = join(__dirname, 'config/mappings.json');
+console.log('Mappings file path:', mappingsPath);
+console.log('Current directory:', __dirname);
+const mappings = JSON.parse(readFileSync(mappingsPath, 'utf8'));
+console.log('Mappings loaded successfully, keys:', Object.keys(mappings));
 
 const port = process.env.PORT || 8080;
 
 // List all packages (for quick comparisons)
 app.get('/roller/packages', (req, res) => {
   try {
+    console.log('Mappings object:', mappings);
+    console.log('Mappings keys:', Object.keys(mappings || {}));
+    console.log('Mappings.packages:', mappings?.packages);
+    
     if (!mappings || !mappings.packages) {
-      return res.status(500).json({ error: 'packages_error', message: 'Packages data not available' });
+      return res.status(500).json({ 
+        error: 'packages_error', 
+        message: 'Packages data not available',
+        debug: {
+          mappingsExists: !!mappings,
+          mappingsKeys: Object.keys(mappings || {}),
+          packagesExists: !!(mappings && mappings.packages)
+        }
+      });
     }
     const out = Object.entries(mappings.packages).map(([code, p]) => ({
       code, product_id: p.id, name: p.name, basePrice: p.basePrice,
