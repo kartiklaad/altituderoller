@@ -79,6 +79,42 @@ app.get('/roller/packageInfo', (req, res) => {
   if (!pkg) return res.status(404).json({ error: 'not_found' });
   res.json(pkg);
 });
+app.post('/roller/router', async (req, res) => {
+  try {
+    let body = req.body || {};
+    if (typeof body === 'string') body = JSON.parse(body);
+    // allow UI that sends { payload: "<stringified json>" }
+    if (body.payload) {
+      const p = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload;
+      body = p;
+    }
+    const { action, args = {} } = body;
 
+    switch (action) {
+      case 'checkAvailability': return res.json(await rollerFetchAvailability(args));
+      case 'checkAddons':       return res.json(await rollerCheckAddons(args));
+      case 'createHold':        return res.json(await rollerCreateHold(args));
+      case 'createCheckoutLink':return res.json(await rollerCreateCheckoutLink(args));
+      case 'bookingStatus':     return res.json(await rollerGetBookingStatus(args));
+      case 'packageInfo': {
+        // optional: serve from mappings
+        const code = String(args.code || '').toUpperCase();
+        const pid  = String(args.product_id || '');
+        const pkgs = (mappings.packages || {});
+        let pkg = code && pkgs[code] ? { code, ...pkgs[code] } : null;
+        if (!pkg && pid) {
+          const hit = Object.entries(pkgs).find(([,p]) => String(p.id) === pid);
+          if (hit) pkg = { code: hit[0], ...hit[1] };
+        }
+        if (!pkg) return res.status(404).json({ error: 'not_found' });
+        return res.json(pkg);
+      }
+      default: return res.status(400).json({ error: 'unknown_action', action });
+    }
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: 'server_error', detail: e?.message || String(e) });
+  }
+});
 
 app.listen(port, () => console.log(`ROLLER middleware listening on :${port}`));
