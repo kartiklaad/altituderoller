@@ -1,11 +1,67 @@
 {
-  "products": {
-    "BIRTHDAY_STANDARD": { "id": "1249650", "basePrice": 349 }
+  "packages": {
+    "STANDARD": {
+      "id": "1249650",
+      "name": "Standard Birthday",
+      "basePrice": 349,
+      "durationMins": 105,
+      "maxGuests": 10,
+      "includes": [
+        "1 hour jump time",
+        "45 min party table",
+        "2 large pizzas",
+        "10 waters",
+        "Setup & cleanup"
+      ],
+      "addons": [
+        { "code": "PRIVATE_ROOM", "name": "Private room", "price": 100 },
+        { "code": "EXTRA_PIZZA", "name": "Extra pizza", "price": 18 },
+        { "code": "SOCKS_10", "name": "Socks bundle (10)", "price": 25 },
+        { "code": "EXTRA_JUMPER", "name": "Extra jumper", "price": 20 }
+      ],
+      "policies": {
+        "deposit": 100,
+        "rescheduleNoticeHours": 48,
+        "cancellationFee": "Varies; see confirmation"
+      }
+    },
+    "DELUXE": {
+      "id": "1249650",
+      "name": "Deluxe Birthday",
+      "basePrice": 429,
+      "durationMins": 105,
+      "maxGuests": 10,
+      "includes": [
+        "Everything in Standard",
+        "Upgraded décor",
+        "Dedicated party host"
+      ],
+      "addons": [],
+      "policies": { "deposit": 100, "rescheduleNoticeHours": 48 }
+    },
+    "GROUP": {
+      "id": "1249650",
+      "name": "Group Event",
+      "basePrice": 299,
+      "durationMins": 90,
+      "maxGuests": 20,
+      "includes": [
+        "Group jump time",
+        "Reserved tables"
+      ],
+      "addons": [],
+      "policies": { "deposit": 100, "rescheduleNoticeHours": 72 }
+    }
   },
+
   "productsReverse": {
-    "1249650": { "code": "BIRTHDAY_STANDARD", "basePrice": 349 }
+    "1249650": { "code": "STANDARD", "basePrice": 349 }
   },
+
   "addons": {
-    "PRIVATE_ROOM": { "id": "addon_room_1", "price": 100 }
+    "PRIVATE_ROOM": { "id": "addon_room_1", "price": 100 },
+    "EXTRA_PIZZA": { "id": "addon_pizza_1", "price": 18 },
+    "SOCKS_10": { "id": "addon_socks10_1", "price": 25 },
+    "EXTRA_JUMPER": { "id": "addon_jumper_1", "price": 20 }
   }
 }
