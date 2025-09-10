@@ -37,5 +37,40 @@ app.get('/roller/bookingStatus', async (req, res) => {
   catch (err) { console.error(err); res.status(500).json({ error: 'status_error', message: err.message }); }
 });
 
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const mappings = JSON.parse(readFileSync(join(__dirname, './config/mappings.json'), 'utf8'));
+
 const port = process.env.PORT || 8080;
+
+// List all packages (for quick comparisons)
+app.get('/roller/packages', (req, res) => {
+  const out = Object.entries(mappings.packages).map(([code, p]) => ({
+    code, product_id: p.id, name: p.name, basePrice: p.basePrice,
+    includes: p.includes, maxGuests: p.maxGuests, durationMins: p.durationMins
+  }));
+  res.json({ packages: out });
+});
+
+// Get one package by code or product_id
+app.get('/roller/packageInfo', (req, res) => {
+  const code = (req.query.code || '').toUpperCase();
+  const pid  = (req.query.product_id || '').trim();
+
+  let pkg = null;
+  if (code && mappings.packages[code]) pkg = { code, ...mappings.packages[code] };
+  if (!pkg && pid) {
+    const entry = Object.entries(mappings.packages).find(([, p]) => String(p.id) === pid);
+    if (entry) pkg = { code: entry[0], ...entry[1] };
+  }
+
+  if (!pkg) return res.status(404).json({ error: 'not_found' });
+  res.json(pkg);
+});
+
+
 app.listen(port, () => console.log(`ROLLER middleware listening on :${port}`));
