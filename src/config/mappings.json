@@ -1,48 +1,11 @@
 {
   "products": {
-    "BIRTHDAY_STANDARD": {
-      "id": "prod_std_123",
-      "basePrice": 349
-    },
-    "BIRTHDAY_DELUXE": {
-      "id": "prod_dlx_124",
-      "basePrice": 429
-    },
-    "GROUP_EVENT": {
-      "id": "prod_group_210",
-      "basePrice": 299
-    }
+    "BIRTHDAY_STANDARD": { "id": "1249650", "basePrice": 349 }
   },
   "productsReverse": {
-    "prod_std_123": {
-      "code": "BIRTHDAY_STANDARD",
-      "basePrice": 349
-    },
-    "prod_dlx_124": {
-      "code": "BIRTHDAY_DELUXE",
-      "basePrice": 429
-    },
-    "prod_group_210": {
-      "code": "GROUP_EVENT",
-      "basePrice": 299
-    }
+    "1249650": { "code": "BIRTHDAY_STANDARD", "basePrice": 349 }
   },
   "addons": {
-    "PRIVATE_ROOM": {
-      "id": "addon_room_1",
-      "price": 100
-    },
-    "EXTRA_PIZZA": {
-      "id": "addon_pizza_1",
-      "price": 18
-    },
-    "SOCKS_10": {
-      "id": "addon_socks10_1",
-      "price": 25
-    },
-    "EXTRA_JUMPER": {
-      "id": "addon_jumper_1",
-      "price": 20
-    }
+    "PRIVATE_ROOM": { "id": "addon_room_1", "price": 100 }
   }
 }

@@ -14,14 +14,26 @@ let cachedToken = null;
 let tokenExpiry = 0;
 
 async function getToken() {
-  const now = Math.floor(Date.now()/1000);
+  const now = Math.floor(Date.now() / 1000);
   if (cachedToken && now < tokenExpiry - 60) return cachedToken;
-  const tokenUrl = `${BASE_URL}/oauth/token`; // confirm in your Dev Center
-  const { data } = await axios.post(tokenUrl, {
+
+  // Base + path come from your ROLLER Dev Center "Servers"
+  const base = (process.env.ROLLER_BASE_URL || '').replace(/\/+$/, '');
+  const tokenPath = process.env.ROLLER_TOKEN_PATH || '/token'; // some tenants use '/oauth/token' — set via env if needed
+  const tokenUrl = `${base}${tokenPath}`;
+
+  // Build an x-www-form-urlencoded body
+  const params = new URLSearchParams({
     grant_type: 'client_credentials',
     client_id: process.env.ROLLER_CLIENT_ID,
     client_secret: process.env.ROLLER_CLIENT_SECRET
-  }, { headers: { 'Content-Type': 'application/json' }});
+  });
+  if (process.env.ROLLER_AUDIENCE) params.set('audience', process.env.ROLLER_AUDIENCE);
+
+  const { data } = await axios.post(tokenUrl, params.toString(), {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+  });
+
   cachedToken = data.access_token;
   tokenExpiry = now + (data.expires_in || 3600);
   return cachedToken;
