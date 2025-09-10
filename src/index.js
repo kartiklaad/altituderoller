@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { rankSlots } from './lib/utils.js';
-import { rollerFetchAvailability, rollerCreateHold, rollerCheckAddons, rollerGetBookingStatus, rollerCreateCheckoutLink } from './lib/rollerClient.js';
+import { rollerFetchAvailability, rollerCreateHold, rollerCheckAddons, rollerGetBookingStatus, rollerCreateCheckoutLink, rollerGetPackages, rollerGetPackageInfo } from './lib/rollerClient.js';
 
 const app = express();
 app.use(cors());
@@ -48,16 +48,10 @@ const mappings = JSON.parse(readFileSync(join(__dirname, 'config/mappings.json')
 const port = process.env.PORT || 8080;
 
 // List all packages (for quick comparisons)
-app.get('/roller/packages', (req, res) => {
+app.get('/roller/packages', async (req, res) => {
   try {
-    if (!mappings || !mappings.packages) {
-      return res.status(500).json({ error: 'packages_error', message: 'Packages data not available' });
-    }
-    const out = Object.entries(mappings.packages).map(([code, p]) => ({
-      code, product_id: p.id, name: p.name, basePrice: p.basePrice,
-      includes: p.includes, maxGuests: p.maxGuests, durationMins: p.durationMins
-    }));
-    res.json({ packages: out });
+    const packages = await rollerGetPackages();
+    res.json({ packages });
   } catch (err) {
     console.error('Packages endpoint error:', err);
     res.status(500).json({ error: 'packages_error', message: err.message });
@@ -65,19 +59,18 @@ app.get('/roller/packages', (req, res) => {
 });
 
 // Get one package by code or product_id
-app.get('/roller/packageInfo', (req, res) => {
-  const code = (req.query.code || '').toUpperCase();
-  const pid  = (req.query.product_id || '').trim();
+app.get('/roller/packageInfo', async (req, res) => {
+  try {
+    const code = (req.query.code || '').toUpperCase();
+    const pid  = (req.query.product_id || '').trim();
 
-  let pkg = null;
-  if (code && mappings.packages[code]) pkg = { code, ...mappings.packages[code] };
-  if (!pkg && pid) {
-    const entry = Object.entries(mappings.packages).find(([, p]) => String(p.id) === pid);
-    if (entry) pkg = { code: entry[0], ...entry[1] };
+    const pkg = await rollerGetPackageInfo({ code, product_id: pid });
+    if (!pkg) return res.status(404).json({ error: 'not_found' });
+    res.json(pkg);
+  } catch (err) {
+    console.error('PackageInfo endpoint error:', err);
+    res.status(500).json({ error: 'package_info_error', message: err.message });
   }
-
-  if (!pkg) return res.status(404).json({ error: 'not_found' });
-  res.json(pkg);
 });
 app.post('/roller/router', async (req, res) => {
   try {
@@ -97,17 +90,15 @@ app.post('/roller/router', async (req, res) => {
       case 'createCheckoutLink':return res.json(await rollerCreateCheckoutLink(args));
       case 'bookingStatus':     return res.json(await rollerGetBookingStatus(args));
       case 'packageInfo': {
-        // optional: serve from mappings
         const code = String(args.code || '').toUpperCase();
         const pid  = String(args.product_id || '');
-        const pkgs = (mappings.packages || {});
-        let pkg = code && pkgs[code] ? { code, ...pkgs[code] } : null;
-        if (!pkg && pid) {
-          const hit = Object.entries(pkgs).find(([,p]) => String(p.id) === pid);
-          if (hit) pkg = { code: hit[0], ...hit[1] };
-        }
+        const pkg = await rollerGetPackageInfo({ code, product_id: pid });
         if (!pkg) return res.status(404).json({ error: 'not_found' });
         return res.json(pkg);
+      }
+      case 'packages': {
+        const packages = await rollerGetPackages();
+        return res.json({ packages });
       }
       default: return res.status(400).json({ error: 'unknown_action', action });
     }

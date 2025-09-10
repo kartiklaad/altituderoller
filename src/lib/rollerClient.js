@@ -103,3 +103,104 @@ export async function rollerGetBookingStatus({ hold_id }) {
   // TODO: poll booking/cart by hold_id or read from webhook cache
   throw new Error('rollerGetBookingStatus not implemented for live mode yet');
 }
+
+// Get all packages from Roller API
+export async function rollerGetPackages({ venue_id = VENUE_ID } = {}) {
+  if (MOCK) {
+    // Return mock packages from mappings
+    return Object.entries(mappings.packages || {}).map(([code, pkg]) => ({
+      code,
+      product_id: pkg.id,
+      name: pkg.name,
+      basePrice: pkg.basePrice,
+      includes: pkg.includes,
+      maxGuests: pkg.maxGuests,
+      durationMins: pkg.durationMins
+    }));
+  }
+  
+  // Skip token call in development mode if credentials are not set or are placeholder values
+  if (process.env.ROLLER_CLIENT_ID &&
+      process.env.ROLLER_CLIENT_SECRET &&
+      process.env.ROLLER_BASE_URL &&
+      !process.env.ROLLER_CLIENT_ID.includes('your_roller_client_id_here')) {
+    const token = await getToken();
+    const { data } = await axios.get(`${BASE_URL}/api/v1/venues/${venue_id}/products`, authHeaders(token));
+    return data;
+  }
+  
+  // Fallback to mappings if API call fails or credentials not set
+  return Object.entries(mappings.packages || {}).map(([code, pkg]) => ({
+    code,
+    product_id: pkg.id,
+    name: pkg.name,
+    basePrice: pkg.basePrice,
+    includes: pkg.includes,
+    maxGuests: pkg.maxGuests,
+    durationMins: pkg.durationMins
+  }));
+}
+
+// Get specific package info from Roller API
+export async function rollerGetPackageInfo({ code, product_id, venue_id = VENUE_ID } = {}) {
+  if (MOCK) {
+    // Return mock package from mappings
+    const pkgs = mappings.packages || {};
+    let pkg = null;
+    
+    if (code) {
+      const upperCode = code.toUpperCase();
+      if (pkgs[upperCode]) {
+        pkg = { code: upperCode, ...pkgs[upperCode] };
+      }
+    }
+    
+    if (!pkg && product_id) {
+      const entry = Object.entries(pkgs).find(([, p]) => String(p.id) === String(product_id));
+      if (entry) {
+        pkg = { code: entry[0], ...entry[1] };
+      }
+    }
+    
+    return pkg || null;
+  }
+  
+  // Skip token call in development mode if credentials are not set or are placeholder values
+  if (process.env.ROLLER_CLIENT_ID &&
+      process.env.ROLLER_CLIENT_SECRET &&
+      process.env.ROLLER_BASE_URL &&
+      !process.env.ROLLER_CLIENT_ID.includes('your_roller_client_id_here')) {
+    const token = await getToken();
+    
+    if (product_id) {
+      // Fetch specific product by ID
+      const { data } = await axios.get(`${BASE_URL}/api/v1/products/${product_id}`, authHeaders(token));
+      return data;
+    } else if (code) {
+      // Fetch all products and filter by code (if Roller API supports this)
+      const { data } = await axios.get(`${BASE_URL}/api/v1/venues/${venue_id}/products`, authHeaders(token));
+      const product = data.find(p => p.code === code.toUpperCase());
+      return product || null;
+    }
+  }
+  
+  // Fallback to mappings if API call fails or credentials not set
+  const pkgs = mappings.packages || {};
+  let pkg = null;
+  
+  if (code) {
+    const upperCode = code.toUpperCase();
+    if (pkgs[upperCode]) {
+      pkg = { code: upperCode, ...pkgs[upperCode] };
+    }
+  }
+  
+  if (!pkg && product_id) {
+    const entry = Object.entries(pkgs).find(([, p]) => String(p.id) === String(product_id));
+    if (entry) {
+      pkg = { code: entry[0], ...entry[1] };
+    }
+  }
+  
+  return pkg || null;
+}
