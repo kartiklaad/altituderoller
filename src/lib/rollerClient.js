@@ -22,16 +22,16 @@ async function getToken() {
   const tokenPath = process.env.ROLLER_TOKEN_PATH || '/token'; // some tenants use '/oauth/token' — set via env if needed
   const tokenUrl = `${base}${tokenPath}`;
 
-  // Build an x-www-form-urlencoded body
-  const params = new URLSearchParams({
+  // Build JSON body (Roller API expects JSON, not form-encoded)
+  const body = {
     grant_type: 'client_credentials',
     client_id: process.env.ROLLER_CLIENT_ID,
     client_secret: process.env.ROLLER_CLIENT_SECRET
-  });
-  if (process.env.ROLLER_AUDIENCE) params.set('audience', process.env.ROLLER_AUDIENCE);
+  };
+  if (process.env.ROLLER_AUDIENCE) body.audience = process.env.ROLLER_AUDIENCE;
 
-  const { data } = await axios.post(tokenUrl, params.toString(), {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+  const { data } = await axios.post(tokenUrl, body, {
+    headers: { 'Content-Type': 'application/json' }
   });
 
   cachedToken = data.access_token;
