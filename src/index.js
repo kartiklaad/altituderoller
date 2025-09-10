@@ -43,17 +43,25 @@ import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const mappings = JSON.parse(readFileSync(join(__dirname, './config/mappings.json'), 'utf8'));
+const mappings = JSON.parse(readFileSync(join(__dirname, 'config/mappings.json'), 'utf8'));
 
 const port = process.env.PORT || 8080;
 
 // List all packages (for quick comparisons)
 app.get('/roller/packages', (req, res) => {
-  const out = Object.entries(mappings.packages).map(([code, p]) => ({
-    code, product_id: p.id, name: p.name, basePrice: p.basePrice,
-    includes: p.includes, maxGuests: p.maxGuests, durationMins: p.durationMins
-  }));
-  res.json({ packages: out });
+  try {
+    if (!mappings || !mappings.packages) {
+      return res.status(500).json({ error: 'packages_error', message: 'Packages data not available' });
+    }
+    const out = Object.entries(mappings.packages).map(([code, p]) => ({
+      code, product_id: p.id, name: p.name, basePrice: p.basePrice,
+      includes: p.includes, maxGuests: p.maxGuests, durationMins: p.durationMins
+    }));
+    res.json({ packages: out });
+  } catch (err) {
+    console.error('Packages endpoint error:', err);
+    res.status(500).json({ error: 'packages_error', message: err.message });
+  }
 });
 
 // Get one package by code or product_id
