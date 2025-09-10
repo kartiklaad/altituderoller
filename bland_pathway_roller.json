@@ -1,0 +1,116 @@
+{
+  "name": "Altitude Del Mar \u2014 Party Booking (ROLLER)",
+  "description": "Inbound party booking via ROLLER middleware",
+  "variables": [
+    {
+      "key": "venue_id",
+      "type": "string"
+    },
+    {
+      "key": "timezone",
+      "type": "string",
+      "defaultValue": "America/Los_Angeles"
+    },
+    {
+      "key": "party_type",
+      "type": "string"
+    },
+    {
+      "key": "product_id",
+      "type": "string"
+    },
+    {
+      "key": "session_id",
+      "type": "string"
+    },
+    {
+      "key": "resource_id",
+      "type": "string"
+    },
+    {
+      "key": "guest_count",
+      "type": "number"
+    },
+    {
+      "key": "preferred_date",
+      "type": "string"
+    },
+    {
+      "key": "time_pref",
+      "type": "string"
+    },
+    {
+      "key": "email",
+      "type": "string"
+    },
+    {
+      "key": "mobile",
+      "type": "string"
+    },
+    {
+      "key": "contact_name",
+      "type": "string"
+    },
+    {
+      "key": "notes",
+      "type": "string"
+    },
+    {
+      "key": "addons_requested",
+      "type": "array"
+    },
+    {
+      "key": "promo_code",
+      "type": "string"
+    },
+    {
+      "key": "availability_options",
+      "type": "object"
+    },
+    {
+      "key": "selected_slot",
+      "type": "object"
+    },
+    {
+      "key": "hold_id",
+      "type": "string"
+    },
+    {
+      "key": "pay_link",
+      "type": "string"
+    },
+    {
+      "key": "payment_status",
+      "type": "string"
+    },
+    {
+      "key": "booking_id",
+      "type": "string"
+    },
+    {
+      "key": "price_subtotal",
+      "type": "number"
+    },
+    {
+      "key": "taxes_fees",
+      "type": "number"
+    },
+    {
+      "key": "deposit_due",
+      "type": "number"
+    },
+    {
+      "key": "price_total",
+      "type": "number"
+    },
+    {
+      "key": "waiver_url",
+      "type": "string"
+    },
+    {
+      "key": "package_info",
+      "type": "object"
+    }
+  ],
+  "nodes": []
+}
