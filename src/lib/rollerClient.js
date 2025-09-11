@@ -14,7 +14,7 @@ const MOCK = process.env.ROLLER_MOCK === '1';
 let cachedToken = null;
 let tokenExpiry = 0;
 
-async function getToken() {
+export async function getToken() {
   if (MOCK) return 'mock-token';
   const now = Math.floor(Date.now()/1000);
   if (cachedToken && now < tokenExpiry - 60) return cachedToken;
@@ -29,9 +29,14 @@ async function getToken() {
   });
   if (process.env.ROLLER_AUDIENCE) params.set('audience', process.env.ROLLER_AUDIENCE);
 
-  const { data } = await axios.post(tokenUrl, params.toString(), {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+  // Use JSON format as confirmed working in Postman
+  const response = await axios.post(tokenUrl, {
+    client_id: process.env.ROLLER_CLIENT_ID,
+    client_secret: process.env.ROLLER_CLIENT_SECRET
+  }, {
+    headers: { 'Content-Type': 'application/json' }
   });
+  const data = response.data;
 
   cachedToken = data.access_token;
   tokenExpiry = now + (data.expires_in || 3600);
