@@ -1,111 +1,46 @@
 import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import { rankSlots } from './lib/utils.js';
-import { rollerFetchAvailability, rollerCreateHold, rollerCheckAddons, rollerGetBookingStatus, rollerCreateCheckoutLink, rollerGetPackages, rollerGetPackageInfo } from './lib/rollerClient.js';
+import express from "express";
+import cors from "cors";
+import { availabilityHandler, availabilityBatchHandler } from "./routes/availability.js";
+import { upgradesHandler } from "./routes/upgrades.js";
+import { holdHandler } from "./routes/hold.js";
+import { checkoutHandler } from "./routes/checkout.js";
+import { statusHandler } from "./routes/status.js";
+import { sendLinkHandler } from "./routes/sendLink.js";
+import { resolveDateHandler } from "./routes/resolveDate.js";
+import { packagesHandler, packageInfoHandler } from "./routes/packages.js";
+import { routerCompat } from "./routes/compatRouter.js";
 
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: "1mb" }));
+app.use(cors({
+  origin: [/^https:\/\/.*\.vapi\.ai$/, "http://localhost:3000", "http://localhost:5173"],
+  methods: ["POST","OPTIONS","GET"]
+}));
 
-app.post('/roller/checkAvailability', async (req, res) => {
-  try {
-    const { venue_id, product_id, date, time_window, guests } = req.body;
-    const result = await rollerFetchAvailability({ venue_id: venue_id || process.env.ROLLER_VENUE_ID, product_id, date, time_window, guests: Number(guests)||1 });
-    const slots = rankSlots(result.slots, { time_window: time_window || {start:'10:00', end:'18:00'} });
-    res.json({ slots, alternates: result.alternates || [] });
-  } catch (err) { console.error(err); res.status(500).json({ error: 'availability_error', message: err.message }); }
+app.get("/health", (_, res) => res.json({ ok: true, ts: Date.now() }));
+
+// Dedicated endpoints
+app.post("/availability", availabilityHandler);
+app.post("/availability/batch", availabilityBatchHandler); // optional parallel checks
+app.post("/upgrades", upgradesHandler);  // (formerly add-ons)
+app.post("/hold", holdHandler);
+app.post("/checkout", checkoutHandler);
+app.post("/status", statusHandler);
+app.post("/send-link", sendLinkHandler);
+app.post("/resolve-date", resolveDateHandler);
+
+// Packages (live Roller; still allow Regina to use file if desired)
+app.post("/packages", packagesHandler);
+app.post("/package-info", packageInfoHandler);
+
+// Backward compatibility for existing clients
+app.post("/roller/router", routerCompat);
+
+app.use((err, req, res, next) => {
+  console.error("Unhandled error", err);
+  res.status(500).json({ ok: false, error: "internal_error" });
 });
 
-app.post('/roller/checkAddons', async (req, res) => {
-  try { const { selected_slot, addons = [] } = req.body; const updated = await rollerCheckAddons({ selected_slot, addons }); res.json(updated); }
-  catch (err) { console.error(err); res.status(500).json({ error: 'addons_error', message: err.message }); }
-});
-
-app.post('/roller/createHold', async (req, res) => {
-  try { const { slot, contact, guests, notes } = req.body; const hold = await rollerCreateHold({ slot, contact, guests, notes }); res.json(hold); }
-  catch (err) { console.error(err); res.status(500).json({ error: 'hold_error', message: err.message }); }
-});
-
-app.post('/roller/createCheckoutLink', async (req, res) => {
-  try { const { hold_id, return_url, cancel_url } = req.body; const resp = await rollerCreateCheckoutLink({ hold_id, return_url, cancel_url }); res.json(resp); }
-  catch (err) { console.error(err); res.status(500).json({ error: 'checkout_error', message: err.message }); }
-});
-
-app.get('/roller/bookingStatus', async (req, res) => {
-  try { const { hold_id } = req.query; const status = await rollerGetBookingStatus({ hold_id }); res.json(status); }
-  catch (err) { console.error(err); res.status(500).json({ error: 'status_error', message: err.message }); }
-});
-
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const mappings = JSON.parse(readFileSync(join(__dirname, 'config/mappings.json'), 'utf8'));
-
-const port = process.env.PORT || 8080;
-
-// List all packages (for quick comparisons)
-app.get('/roller/packages', async (req, res) => {
-  try {
-    const packages = await rollerGetPackages();
-    res.json({ packages });
-  } catch (err) {
-    console.error('Packages endpoint error:', err);
-    res.status(500).json({ error: 'packages_error', message: err.message });
-  }
-});
-
-// Get one package by code or product_id
-app.get('/roller/packageInfo', async (req, res) => {
-  try {
-    const code = (req.query.code || '').toUpperCase();
-    const pid  = (req.query.product_id || '').trim();
-
-    const pkg = await rollerGetPackageInfo({ code, product_id: pid });
-    if (!pkg) return res.status(404).json({ error: 'not_found' });
-    res.json(pkg);
-  } catch (err) {
-    console.error('PackageInfo endpoint error:', err);
-    res.status(500).json({ error: 'package_info_error', message: err.message });
-  }
-});
-app.post('/roller/router', async (req, res) => {
-  try {
-    let body = req.body || {};
-    if (typeof body === 'string') body = JSON.parse(body);
-    // allow UI that sends { payload: "<stringified json>" }
-    if (body.payload) {
-      const p = typeof body.payload === 'string' ? JSON.parse(body.payload) : body.payload;
-      body = p;
-    }
-    const { action, args = {} } = body;
-
-    switch (action) {
-      case 'checkAvailability': return res.json(await rollerFetchAvailability(args));
-      case 'checkAddons':       return res.json(await rollerCheckAddons(args));
-      case 'createHold':        return res.json(await rollerCreateHold(args));
-      case 'createCheckoutLink':return res.json(await rollerCreateCheckoutLink(args));
-      case 'bookingStatus':     return res.json(await rollerGetBookingStatus(args));
-      case 'packageInfo': {
-        const code = String(args.code || '').toUpperCase();
-        const pid  = String(args.product_id || '');
-        const pkg = await rollerGetPackageInfo({ code, product_id: pid });
-        if (!pkg) return res.status(404).json({ error: 'not_found' });
-        return res.json(pkg);
-      }
-      case 'packages': {
-        const packages = await rollerGetPackages();
-        return res.json({ packages });
-      }
-      default: return res.status(400).json({ error: 'unknown_action', action });
-    }
-  } catch (e) {
-    console.error(e);
-    return res.status(500).json({ error: 'server_error', detail: e?.message || String(e) });
-  }
-});
-
-app.listen(port, () => console.log(`ROLLER middleware listening on :${port}`));
+const port = process.env.PORT || 3000;
+app.listen(port, () => console.log(`API listening on ${port}`));
