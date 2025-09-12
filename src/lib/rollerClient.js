@@ -1,15 +1,7 @@
 import axios from 'axios';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const mappings = JSON.parse(readFileSync(join(__dirname, '../config/mappings.json'), 'utf8'));
 
 const BASE_URL = (process.env.ROLLER_BASE_URL || '').replace(/\/+$/,'');
 const VENUE_ID = process.env.ROLLER_VENUE_ID;
-const MOCK = process.env.ROLLER_MOCK === '1';
 
 let cachedToken = null;
 let tokenExpiry = 0;
@@ -75,11 +67,17 @@ export async function rollerFetchAvailability({ venue_id = VENUE_ID, product_id,
   return { slots, alternates };
 }
 
-// Add-ons pricing (local)
+// Add-ons pricing - TODO: Implement with live Roller API
 export async function rollerCheckAddons({ selected_slot, addons }) {
-  const addTotal = (addons || []).reduce((sum, code) => sum + (mappings.addons[code]?.price || 0), 0);
-  const price = Number(selected_slot.price || 0) + addTotal;
-  return { slot: { ...selected_slot, addons, price }, price_subtotal: price, taxes_fees: 0, price_total: price };
+  // For now, return basic pricing without addon calculations
+  // This should be implemented with live Roller API addon pricing
+  const price = Number(selected_slot.price || 0);
+  return { 
+    slot: { ...selected_slot, addons: addons || [], price }, 
+    price_subtotal: price, 
+    taxes_fees: 0, 
+    price_total: price 
+  };
 }
 
 // Create provisional hold
