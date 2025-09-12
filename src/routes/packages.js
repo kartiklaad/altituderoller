@@ -1,13 +1,13 @@
 import { z } from "zod";
-import { rollerGetPackages, rollerGetPackageInfo } from "../lib/rollerClient.js";
+import { rollerGetProductsByCategory, rollerGetPackageInfo } from "../lib/rollerClient.js";
 
 export async function packagesHandler(req, res) {
   try {
     const bodySchema = z.object({
-      venue_id: z.string().optional() // default handled in client or caller
+      category: z.string().optional().default('Parties') // default to Parties category
     });
     const body = bodySchema.parse(req.body ?? {});
-    const data = await rollerGetPackages(body);
+    const data = await rollerGetProductsByCategory(body);
     return res.json({ ok: true, data });
   } catch (e) {
     if (e?.issues) return res.status(400).json({ ok: false, error: "invalid_body", details: e.issues });

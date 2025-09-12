@@ -18,20 +18,15 @@ export async function getToken() {
   const now = Math.floor(Date.now()/1000);
   if (cachedToken && now < tokenExpiry - 60) return cachedToken;
 
-  const tokenPath = process.env.ROLLER_TOKEN_PATH || '/token'; // set to '/oauth/token' if your portal shows that
+  const tokenPath = process.env.ROLLER_TOKEN_PATH || '/token';
   const tokenUrl = `${BASE_URL}${tokenPath}`;
-
-  const params = new URLSearchParams({
-    grant_type: 'client_credentials',
-    client_id: process.env.ROLLER_CLIENT_ID,
-    client_secret: process.env.ROLLER_CLIENT_SECRET
-  });
-  if (process.env.ROLLER_AUDIENCE) params.set('audience', process.env.ROLLER_AUDIENCE);
 
   // Use JSON format as confirmed working in Postman
   const response = await axios.post(tokenUrl, {
+    grant_type: 'client_credentials',
     client_id: process.env.ROLLER_CLIENT_ID,
-    client_secret: process.env.ROLLER_CLIENT_SECRET
+    client_secret: process.env.ROLLER_CLIENT_SECRET,
+    ...(process.env.ROLLER_AUDIENCE && { audience: process.env.ROLLER_AUDIENCE })
   }, {
     headers: { 'Content-Type': 'application/json' }
   });
@@ -49,27 +44,33 @@ function authHeaders(token) {
 // Availability
 export async function rollerFetchAvailability({ venue_id = VENUE_ID, product_id, date, time_window, guests }) {
   const token = await getToken();
-  const { data } = await axios.get(`${BASE_URL}/api/v1/venues/${venue_id}/products/${product_id}/availability`, {
-    params: { date, quantity: guests },
+  const { data } = await axios.get(`${BASE_URL}/product-availability/`, {
+    params: {
+      ProductIds: product_id,
+      Date: date
+    },
     headers: authHeaders(token)
   });
   
   // Transform Roller API response to our format
-  const slots = data.sessions?.map(s => ({
-    session_id: s.id,
-    start: s.start,
-    end: s.end,
-    product_id,
-    price: s.price
-  })) || [];
+  // The response is an array of products with sessions
+  const product = data && data.length > 0 ? data[0] : null;
+  if (!product || !product.sessions) {
+    return { slots: [], alternates: [] };
+  }
   
-  const alternates = data.alternates?.map(a => ({
-    date: a.date,
-    start: a.start,
-    end: a.end,
+  const slots = product.sessions.map(s => ({
+    session_id: s.id || `${s.startTime}-${s.endTime}`,
+    start: s.startTime,
+    end: s.endTime,
     product_id,
-    price: a.price
-  })) || [];
+    price: product.products?.[0]?.cost || 0,
+    capacity_remaining: s.capacityRemaining,
+    date: s.date
+  }));
+  
+  // Roller API doesn't provide alternates in the same way, so we'll return empty
+  const alternates = [];
   
   return { slots, alternates };
 }
@@ -84,11 +85,11 @@ export async function rollerCheckAddons({ selected_slot, addons }) {
 // Create provisional hold
 export async function rollerCreateHold({ slot, contact, guests, notes }) {
   const token = await getToken();
-  const { data } = await axios.post(`${BASE_URL}/api/v1/bookings`, {
-    product_id: slot.product_id,
-    session_id: slot.session_id,
-    start_time: slot.start,
-    end_time: slot.end,
+  const { data } = await axios.post(`${BASE_URL}/bookings`, {
+    productId: slot.product_id,
+    sessionId: slot.session_id,
+    startTime: slot.start,
+    endTime: slot.end,
     guests,
     contact,
     notes,
@@ -98,48 +99,51 @@ export async function rollerCreateHold({ slot, contact, guests, notes }) {
   });
   
   return {
-    hold_id: data.hold_id || data.id,
-    expires_at: data.expires_at || data.expires,
-    deposit_due: data.deposit_due || 100,
-    price_total: data.price_total || slot.price
+    hold_id: data.holdId || data.id,
+    expires_at: data.expiresAt || data.expires,
+    deposit_due: data.depositDue || 100,
+    price_total: data.priceTotal || slot.price
   };
 }
 
 // Create checkout link
 export async function rollerCreateCheckoutLink({ hold_id, return_url, cancel_url }) {
   const token = await getToken();
-  const { data } = await axios.post(`${BASE_URL}/api/v1/checkout/sessions`, {
-    hold_id,
-    return_url,
-    cancel_url
+  const { data } = await axios.post(`${BASE_URL}/checkout/sessions`, {
+    holdId: hold_id,
+    returnUrl: return_url,
+    cancelUrl: cancel_url
   }, {
     headers: authHeaders(token)
   });
   
   return {
-    pay_link: data.pay_link || data.url || data.checkout_url
+    pay_link: data.payLink || data.url || data.checkoutUrl
   };
 }
 
 // Booking status
 export async function rollerGetBookingStatus({ hold_id }) {
   const token = await getToken();
-  const { data } = await axios.get(`${BASE_URL}/api/v1/bookings/${hold_id}`, {
+  const { data } = await axios.get(`${BASE_URL}/bookings/${hold_id}`, {
     headers: authHeaders(token)
   });
   
   return {
     status: data.status || 'pending',
-    booking_id: data.booking_id || data.id,
-    payment_status: data.payment_status,
+    booking_id: data.bookingId || data.id,
+    payment_status: data.paymentStatus,
     confirmed: data.confirmed || false
   };
 }
 
-// Get all packages from Roller API
-export async function rollerGetPackages({ venue_id = VENUE_ID } = {}) {
+// Get all products in a specific category from Roller API
+export async function rollerGetProductsByCategory({ category = 'Parties' } = {}) {
   const token = await getToken();
-  const { data } = await axios.get(`${BASE_URL}/api/v1/venues/${venue_id}/products`, {
+  const { data } = await axios.get(`${BASE_URL}/products`, {
+    params: {
+      ProductCategory: category
+    },
     headers: authHeaders(token)
   });
   return data;
@@ -150,18 +154,21 @@ export async function rollerGetPackageInfo({ code, product_id, venue_id = VENUE_
   const token = await getToken();
   
   if (product_id) {
-    // Fetch specific product by ID
-    const { data } = await axios.get(`${BASE_URL}/api/v1/products/${product_id}`, {
+    // Use the correct endpoint from Postman: /product-availability/
+    const { data } = await axios.get(`${BASE_URL}/product-availability/`, {
+      params: {
+        ProductIds: product_id,
+        Date: new Date().toISOString().split('T')[0] // Today's date in YYYY-MM-DD format
+      },
       headers: authHeaders(token)
     });
-    return data;
+    
+    // Return the first product from the array
+    return data && data.length > 0 ? data[0] : null;
   } else if (code) {
-    // Fetch all products and filter by code (if Roller API supports this)
-    const { data } = await axios.get(`${BASE_URL}/api/v1/venues/${venue_id}/products`, {
-      headers: authHeaders(token)
-    });
-    const product = data.find(p => p.code === code.toUpperCase());
-    return product || null;
+    // For code-based lookup, we'd need to fetch all products first
+    // This would require a different endpoint or we could use the same approach
+    throw new Error('Code-based lookup not implemented yet - use product_id instead');
   }
   
   return null;
